@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch sử - LOGTIME SYSTEM</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div style="display: none;">
+        <h1>VN-Tracking <sup>v1.4.11</sup></h1>
+    </div>
+
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="app-sidebar">
+            <div class="sidebar-brand" style="padding: 1rem 0;">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="WebTime Logo" style="max-height: 40px;">
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('dashboard') }}" class="nav-item">Báo cáo ngày</a>
+                <a href="{{ url_for('history') }}" class="nav-item active">Lịch sử</a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="am-header">
+                    <img src="https://api.dicebear.com/7.x/notionists/svg?seed={{ platform_name }}"
+                        class="am-avatar-large" alt="Avatar">
+                    <h3 class="am-name">{{ col_f or 'Tên người dùng' }}</h3>
+                    <p class="am-handle">@{{ platform_name }}</p>
+                </div>
+                <div class="am-details">
+                    <div class="am-row">
+                        <span class="am-label">Mật khẩu</span>
+                        <span class="am-val">{{ stt }}</span>
+                    </div>
+                    <div class="am-row">
+                        <span class="am-label">UID</span>
+                        <span class="am-val">{{ uid }}</span>
+                    </div>
+                    <div class="am-row">
+                        <span class="am-label">Tài khoản</span>
+                        <span class="am-val">{{ platform_name }}</span>
+                    </div>
+                    <div class="am-row">
+                        <span class="am-label">Zalo Name</span>
+                        <span class="am-val">{{ col_f }}</span>
+                    </div>
+                    <div class="am-row">
+                        <span class="am-label">Sub-Leader</span>
+                        <span class="am-val">{{ col_g }}</span>
+                    </div>
+                </div>
+                <div class="am-actions">
+                    <a href="{{ url_for('logout') }}" class="btn-am-logout">Đăng xuất</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left" style="display: flex; align-items: center; gap: 1rem;">
+                    <button id="sidebar-toggle" class="mobile-menu-btn"
+                        onclick="document.getElementById('app-sidebar').classList.toggle('active')">☰</button>
+                    <div class="breadcrumbs">Tài khoản &rsaquo; <span>Lịch sử</span></div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="btn-logout-outline">Đăng xuất</a>
+            </header>
+
+            <div class="dashboard-body">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3>Lịch sử Logtime của bạn</h3>
+                        <span class="status-dot"></span>
+                    </div>
+                    <div class="stream-table">
+                        <div class="stream-header" style="font-weight: 600; text-align: center;">
+                            <div class="col-c" style="flex: 1.5; justify-content: center;">Ngày báo cáo</div>
+                            <div class="col-c" style="flex: 1.5; justify-content: center;">Thời gian</div>
+                            <div class="col-c" style="justify-content: center;">Quy đổi (phút)</div>
+                            <div class="col-c" style="justify-content: center;">Tổng Viewer</div>
+                            <div class="col-c" style="flex: 2; justify-content: center;">Mã Session</div>
+                        </div>
+
+                        {% if history %}
+                        {% for item in history %}
+                        <div class="stream-row">
+                            <div class="col-c" style="flex: 1.5; justify-content: center; color: var(--text-main); font-weight: 500;">{{
+                                item.date }}</div>
+                            <div class="col-c" style="flex: 1.5; justify-content: center;">{{ item.time }}</div>
+                            <div class="col-c font-bold" style="justify-content: center; color: var(--primary);">{{ item.minutes }}</div>
+                            <div class="col-c" style="justify-content: center;">{{ item.viewer }}</div>
+                            <div class="col-c"
+                                style="flex: 2; justify-content: center;">
+                                <span style="font-family: monospace; color: var(--text-muted); background: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color);">{{ item.session_id }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <div class="stream-total-row">
+                            <div class="col-c" style="flex: 1.5; justify-content: center; font-weight: 700; color: var(--text-main);">TỔNG CỘNG:
+                            </div>
+                            <div class="col-c" style="flex: 1.5; justify-content: center; font-weight: 700;">{{ total_time }}</div>
+                            <div class="col-c font-bold" style="justify-content: center; color: var(--primary);">{{ total_minutes }}</div>
+                            <div class="col-c font-bold" style="justify-content: center;">{{ total_viewer }}</div>
+                            <div class="col-c" style="flex: 2; justify-content: center;"></div>
+                        </div>
+                        {% else %}
+                        <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                            Chưa có lịch sử báo cáo nào.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

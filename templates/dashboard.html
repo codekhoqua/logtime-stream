@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Báo cáo - LOGTIME SYSTEM</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body>
+    <div style="display: none;">
+        <h1>VN-Tracking <sup>v1.4.11</sup></h1>
+    </div>
+
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="app-sidebar">
+            <div class="sidebar-brand" style="padding: 1rem 0;">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="WebTime Logo" style="max-height: 40px;">
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('dashboard') }}" class="nav-item active">Báo cáo</a>
+                <a href="{{ url_for('history') }}" class="nav-item">Lịch sử</a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="am-header">
+                    <img src="https://api.dicebear.com/7.x/notionists/svg?seed={{ platform_name }}"
+                        class="am-avatar-large" alt="Avatar">
+                    <h3 class="am-name">{{ col_f or 'Tên người dùng' }}</h3>
+                    <p class="am-handle">@{{ platform_name }}</p>
+                </div>
+                <div class="am-details">
+                    <div class="am-row">
+                        <span class="am-label">Mật khẩu</span>
+                        <span class="am-val">{{ stt }}</span>
+                    </div>
+                    <div class="am-row">
+                        <span class="am-label">UID</span>
+                        <span class="am-val">{{ uid }}</span>
+                    </div>
+                    <div class="am-row">
+                        <span class="am-label">Tài khoản</span>
+                        <span class="am-val">{{ platform_name }}</span>
+                    </div>
+                    <div class="am-row">
+                        <span class="am-label">Zalo Name</span>
+                        <span class="am-val">{{ col_f }}</span>
+                    </div>
+                    <div class="am-row">
+                        <span class="am-label">Sub-Leader</span>
+                        <span class="am-val">{{ col_g }}</span>
+                    </div>
+                </div>
+                <div class="am-actions">
+                    <a href="{{ url_for('logout') }}" class="btn-am-logout">Đăng xuất</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left" style="display: flex; align-items: center; gap: 1rem;">
+                    <button id="sidebar-toggle" class="mobile-menu-btn"
+                        onclick="document.getElementById('app-sidebar').classList.toggle('active')">☰</button>
+                    <div class="breadcrumbs">Tài khoản &rsaquo; <span>Báo cáo </span></div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="btn-logout-outline">Đăng xuất</a>
+            </header>
+
+            <div class="dashboard-body">
+                <div class="dashboard-grid">
+                    <div class="dashboard-main-col">
+                        <!-- Nhóm 1: STT, ID, Platform Name -->
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h3>THÔNG TIN TÀI KHOẢN</h3>
+                            </div>
+                            <div class="info-grid three-cols">
+                                <div class="form-group">
+                                    <label># (STT)</label>
+                                    <input type="text" id="hash_input" value="{{ stt }}" class="fancy-input" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>ID</label>
+                                    <input type="text" id="id_input" value="{{ uid }}" class="fancy-input" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Platform Name</label>
+                                    <input type="text" id="platform_name" value="{{ platform_name }}"
+                                        class="fancy-input" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Nhóm 2: Ngày báo cáo, Viewer -->
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h3>CHI TIẾT BÁO CÁO</h3>
+                            </div>
+                            <div class="info-grid two-cols">
+                                <div class="form-group">
+                                    <label>Ngày báo cáo <span class="required-star">*</span></label>
+                                    <input type="date" id="date_input" class="fancy-input"
+                                        onchange="updateReportText()">
+                                </div>
+                                <div class="form-group">
+                                    <label>Tổng live viewer <span class="required-star">*</span></label>
+                                    <input type="number" id="live_viewer" class="fancy-input" placeholder="0"
+                                        oninput="updateReportText(); updateMetrics();">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Nhóm 3: Thời lượng stream -->
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h3>THỜI LƯỢNG STREAM</h3>
+                            </div>
+                            <div class="stream-table">
+                                <div class="stream-header">
+                                    <div class="col-l">Lần</div>
+                                    <div class="col-c">Thời lượng</div>
+                                    <div class="col-r">Quy đổi thành phút</div>
+                                    <div class="col-x"></div>
+                                </div>
+                                <div id="streams-container">
+                                    <!-- Stream 1 -->
+                                    <div class="stream-row" id="stream-row-1">
+                                        <div class="col-l">
+                                            <span class="row-label">Stream lần 1</span>
+                                            <input type="hidden" class="time-mode-value" value="manual">
+                                        </div>
+                                        <div class="col-c">
+                                            <div class="mode-manual" id="mode-manual-1" style="width: 100%;">
+                                                <input type="text" class="fancy-input stream-time"
+                                                    placeholder="HH:MM:SS" oninput="formatTimeInput(this)"
+                                                    onchange="calculateAll()" maxlength="8">
+                                            </div>
+                                        </div>
+                                        <div class="col-r">
+                                            <input type="number" class="fancy-input stream-minutes table-input-readonly"
+                                                readonly>
+                                        </div>
+                                        <div class="col-x"></div>
+                                    </div>
+                                    <!-- Stream 2 -->
+                                    <div class="stream-row" id="stream-row-2">
+                                        <div class="col-l">
+                                            <span class="row-label">Stream lần 2</span>
+                                            <input type="hidden" class="time-mode-value" value="manual">
+                                        </div>
+                                        <div class="col-c">
+                                            <div class="mode-manual" id="mode-manual-2" style="width: 100%;">
+                                                <input type="text" class="fancy-input stream-time"
+                                                    placeholder="HH:MM:SS" oninput="formatTimeInput(this)"
+                                                    onchange="calculateAll()" maxlength="8">
+                                            </div>
+                                        </div>
+                                        <div class="col-r">
+                                            <input type="number" class="fancy-input stream-minutes table-input-readonly"
+                                                readonly>
+                                        </div>
+                                        <div class="col-x"></div>
+                                    </div>
+                                    <!-- Stream 3 -->
+                                    <div class="stream-row" id="stream-row-3">
+                                        <div class="col-l">
+                                            <span class="row-label">Stream lần 3</span>
+                                            <input type="hidden" class="time-mode-value" value="manual">
+                                        </div>
+                                        <div class="col-c">
+                                            <div class="mode-manual" id="mode-manual-3" style="width: 100%;">
+                                                <input type="text" class="fancy-input stream-time"
+                                                    placeholder="HH:MM:SS" oninput="formatTimeInput(this)"
+                                                    onchange="calculateAll()" maxlength="8">
+                                            </div>
+                                        </div>
+                                        <div class="col-r">
+                                            <input type="number" class="fancy-input stream-minutes table-input-readonly"
+                                                readonly>
+                                        </div>
+                                        <div class="col-x"></div>
+                                    </div>
+                                </div>
+                                <!-- We no longer put Total inside the table, we put it in the dashboard box below! -->
+                            </div>
+                            <div class="stream-actions">
+                                <div></div>
+                                <button class="btn-outline-small" onclick="addStreamRow()">+ Thêm dòng</button>
+                            </div>
+                        </div>
+
+                        <!-- Nhóm 4: Dashboard Tổng & Lưu Data -->
+                        <div class="summary-dashboard">
+                            <div class="summary-cards">
+                                <div class="summary-item">
+                                    <span class="lbl">Tổng thời gian</span>
+                                    <strong class="val" id="metric_total_time">00:00:00</strong>
+                                    <!-- Hidden inputs to still send to server -->
+                                    <input type="hidden" id="total_time" value="00:00:00">
+                                </div>
+                                <div class="summary-item">
+                                    <span class="lbl">Quy đổi (phút)</span>
+                                    <strong class="val" id="metric_total_mins">0</strong>
+                                    <input type="hidden" id="total_minutes" value="0">
+                                </div>
+                                <div class="summary-item">
+                                    <span class="lbl">Tổng view</span>
+                                    <strong class="val" id="metric_total_views">0</strong>
+                                </div>
+                            </div>
+                            <button class="btn-primary-solid btn-large" onclick="submitData()">LƯU LOGTIME</button>
+                        </div>
+                    </div> <!-- End Main Col -->
+
+                    <div class="dashboard-side-col">
+                        <!-- Nhóm 5: Mẫu báo cáo -->
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h3>MẪU BÁO CÁO</h3>
+                            </div>
+                            <div class="report-container">
+                                <div class="report-box">
+                                    <p class="report-title">MẪU BÁO CÁO THỜI GIAN</p>
+                                    <p id="rp_line1">*Em gửi Thời lượng Live - Ngày ... tháng ... năm ...*</p>
+                                    <p id="rp_line2">Thời gian: 00:00:00 tương đương 0 phút</p>
+                                    <p id="rp_line3">ID: {{ uid }} - {{ platform_name }}</p>
+                                    <p id="rp_line4">Tổng số View: 0</p>
+                                </div>
+                                <div class="report-actions">
+                                    <!-- Only Copy Button -->
+                                    <button class="btn-dark-solid" onclick="copyReport()" style="width: 100%;">COPY BÁO
+                                        CÁO</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div> <!-- End Side Col -->
+                </div> <!-- End Grid -->
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>
