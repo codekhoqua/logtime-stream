@@ -5,6 +5,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 import uuid
 from threading import Lock
+import json
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_logtime_key'
@@ -18,9 +19,20 @@ creds_path = 'credentials.json'
 SPREADSHEET_ID = '1nVQ-q4AIxHgknLQac7i-ca1Mpcp0MCpKVesgSgjLn-k'
 
 def get_sheet():
-    if not os.path.exists(creds_path):
+    creds = None
+    if os.path.exists(creds_path):
+        creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
+    elif os.environ.get('GOOGLE_CREDENTIALS'):
+        try:
+            creds_dict = json.loads(os.environ.get('GOOGLE_CREDENTIALS'))
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        except Exception as e:
+            print(f"Error parsing GOOGLE_CREDENTIALS: {e}")
+            return None
+            
+    if not creds:
         return None
-    creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
+        
     client = gspread.authorize(creds)
     sheet = client.open_by_key(SPREADSHEET_ID)
     return sheet
