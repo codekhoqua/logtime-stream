@@ -73,7 +73,16 @@ def login():
             else:
                 b64 = os.environ.get('GOOGLE_CREDENTIALS_B64')
                 if b64:
-                    err_msg = f"Zeabur CÓ NHẬN biến (Độ dài: {len(b64)} ký tự). Nhưng giải mã thất bại do sai format!"
+                    import base64
+                    try:
+                        b_str = b64.strip().replace('"', '').replace("'", "")
+                        b_str += "=" * ((4 - len(b_str) % 4) % 4)
+                        b64_dec = base64.b64decode(b_str).decode('utf-8')
+                        d = json.loads(b64_dec)
+                        ServiceAccountCredentials.from_json_keyfile_dict(d, scope)
+                        err_msg = "Không có lỗi giải mã nhưng get_sheet vẫn trả về None vì lý do bí ẩn."
+                    except Exception as e:
+                        err_msg = f"Lỗi chi tiết (B64): {type(e).__name__} - {str(e)}"
                 else:
                     err_msg = "Zeabur CHƯA HỀ NHẬN BIẾN GOOGLE_CREDENTIALS_B64! Bạn cần Restart Server trên Zeabur."
                 return render_template('login.html', error=err_msg)
