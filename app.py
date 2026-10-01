@@ -71,7 +71,12 @@ def login():
                     print("Lỗi đọc HR Info:", e)
                     return render_template('login.html', error='Lỗi đọc Google Sheets (kiểm tra lại quyền truy cập).')
             else:
-                return render_template('login.html', error='Hệ thống chưa kết nối Google Sheets (thiếu credentials.json).')
+                b64 = os.environ.get('GOOGLE_CREDENTIALS_B64')
+                if b64:
+                    err_msg = f"Zeabur CÓ NHẬN biến (Độ dài: {len(b64)} ký tự). Nhưng giải mã thất bại do sai format!"
+                else:
+                    err_msg = "Zeabur CHƯA HỀ NHẬN BIẾN GOOGLE_CREDENTIALS_B64! Bạn cần Restart Server trên Zeabur."
+                return render_template('login.html', error=err_msg)
             if is_valid:
                 session['platform_name'] = platform_name
                 session['stt'] = stt
