@@ -25,7 +25,9 @@ def get_sheet():
     elif os.environ.get('GOOGLE_CREDENTIALS_B64'):
         try:
             import base64
-            creds_json = base64.b64decode(os.environ.get('GOOGLE_CREDENTIALS_B64')).decode('utf-8')
+            b64_str = os.environ.get('GOOGLE_CREDENTIALS_B64')
+            b64_str += "=" * ((4 - len(b64_str) % 4) % 4)
+            creds_json = base64.b64decode(b64_str).decode('utf-8')
             creds_dict = json.loads(creds_json)
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         except Exception as e:
