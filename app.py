@@ -25,9 +25,12 @@ def get_sheet():
     elif os.environ.get('GOOGLE_CREDENTIALS_B64'):
         try:
             import base64
-            b64_str = os.environ.get('GOOGLE_CREDENTIALS_B64').strip().replace('"', '').replace("'", "")
-            b64_str += "=" * ((4 - len(b64_str) % 4) % 4)
-            creds_json = base64.b64decode(b64_str).decode('utf-8')
+            import re
+            b64_str = os.environ.get('GOOGLE_CREDENTIALS_B64')
+            b_str = re.sub(r'[^A-Za-z0-9+/=]', '', b64_str)
+            b_str = b_str.rstrip('=')
+            b_str += "=" * ((4 - len(b_str) % 4) % 4)
+            creds_json = base64.b64decode(b_str).decode('utf-8')
             creds_dict = json.loads(creds_json)
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         except Exception as e:
@@ -74,9 +77,15 @@ def login():
                 b64 = os.environ.get('GOOGLE_CREDENTIALS_B64')
                 if b64:
                     import base64
+                    import re
                     try:
-                        b_str = b64.strip().replace('"', '').replace("'", "")
+                        # Làm sạch chuỗi TUYỆT ĐỐI (xóa mọi ký tự không phải base64 do Zeabur nhét vào)
+                        b_str = re.sub(r'[^A-Za-z0-9+/=]', '', b64)
+                        # Bỏ luôn dấu = ở cuối nếu có để tự tính toán lại padding
+                        b_str = b_str.rstrip('=')
+                        # Tính lại padding chuẩn 100%
                         b_str += "=" * ((4 - len(b_str) % 4) % 4)
+                        
                         b64_dec = base64.b64decode(b_str).decode('utf-8')
                         d = json.loads(b64_dec)
                         ServiceAccountCredentials.from_json_keyfile_dict(d, scope)
