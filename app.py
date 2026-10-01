@@ -1,11 +1,12 @@
 import os
+import re
+import json
+import uuid
+import base64
+from threading import Lock
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime
-import uuid
-from threading import Lock
-import json
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_logtime_key'
@@ -18,31 +19,96 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 creds_path = 'credentials.json'
 SPREADSHEET_ID = '1nVQ-q4AIxHgknLQac7i-ca1Mpcp0MCpKVesgSgjLn-k'
 
-def get_sheet():
-    creds = None
+last_sheet_error = ""
+
+def load_credentials_dict():
+    global last_sheet_error
+    # 1. Đọc file credentials.json nếu tồn tại
     if os.path.exists(creds_path):
-        creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
-    elif os.environ.get('GOOGLE_CREDENTIALS_B64'):
         try:
-            import base64
-            import re
-            b64_str = os.environ.get('GOOGLE_CREDENTIALS_B64')
-            b_str = re.sub(r'[^A-Za-z0-9+/=]', '', b64_str)
-            b_str = b_str.rstrip('=')
-            b_str += "=" * ((4 - len(b_str) % 4) % 4)
-            creds_json = base64.b64decode(b_str).decode('utf-8')
-            creds_dict = json.loads(creds_json)
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+            with open(creds_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
         except Exception as e:
-            print(f"Error parsing GOOGLE_CREDENTIALS: {e}")
-            return None
-            
-    if not creds:
+            last_sheet_error = f"Lỗi đọc credentials.json: {e}"
+            print(last_sheet_error)
+
+    # 2. Đọc biến môi trường (hỗ trợ cả GOOGLE_CREDENTIALS, GOOGLE_CREDENTIALS_B64, GOOGLE_SHEETS_CREDENTIALS)
+    raw_val = (
+        os.environ.get('GOOGLE_CREDENTIALS_B64') or
+        os.environ.get('GOOGLE_CREDENTIALS') or
+        os.environ.get('GOOGLE_SHEETS_CREDENTIALS') or
+        ''
+    ).strip()
+
+    if not raw_val:
+        last_sheet_error = "Chưa cấu hình credentials.json hoặc biến môi trường GOOGLE_CREDENTIALS_B64 / GOOGLE_CREDENTIALS trên server."
         return None
-        
-    client = gspread.authorize(creds)
-    sheet = client.open_by_key(SPREADSHEET_ID)
-    return sheet
+
+    # Bỏ dấu ngoặc kép bọc ngoài nếu có
+    if (raw_val.startswith('"') and raw_val.endswith('"')) or (raw_val.startswith("'") and raw_val.endswith("'")):
+        raw_val = raw_val[1:-1].strip()
+
+    # Trường hợp A: Biến là chuỗi JSON trực tiếp
+    if raw_val.startswith('{'):
+        try:
+            return json.loads(raw_val)
+        except Exception as e:
+            last_sheet_error = f"Lỗi parse JSON credentials: {e}"
+            print(last_sheet_error)
+            return None
+
+    # Trường hợp B: Biến là chuỗi Base64
+    try:
+        # Chuẩn hóa URL-safe nếu có
+        s = raw_val.replace('-', '+').replace('_', '/')
+        # Loại bỏ ký tự thừa ngoài bảng mã Base64
+        s = re.sub(r'[^A-Za-z0-9+/=]', '', s)
+        s = s.rstrip('=')
+        # Thêm padding chuẩn
+        s += '=' * ((4 - len(s) % 4) % 4)
+        decoded = base64.b64decode(s).decode('utf-8')
+        return json.loads(decoded)
+    except Exception as e:
+        last_sheet_error = f"Lỗi giải mã Base64 GOOGLE_CREDENTIALS: {e}"
+        print(last_sheet_error)
+        return None
+
+def get_sheet():
+    global last_sheet_error
+    creds_dict = load_credentials_dict()
+    if not creds_dict:
+        return None
+
+    # Tự động sửa lỗi ký tự ')' trong private_key nếu có
+    if 'private_key' in creds_dict and isinstance(creds_dict['private_key'], str):
+        creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+        if 'EKmHf/h)AgMBAAE' in creds_dict['private_key']:
+            creds_dict['private_key'] = creds_dict['private_key'].replace('EKmHf/h)AgMBAAE', 'EKmHf/gpAgMBAAE')
+
+    creds = None
+    # Thử google.oauth2.service_account trước
+    try:
+        from google.oauth2.service_account import Credentials
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    except Exception as e1:
+        # Fallback oauth2client
+        try:
+            from oauth2client.service_account import ServiceAccountCredentials
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        except Exception as e2:
+            last_sheet_error = f"Lỗi tạo Credentials: {e1} | {e2}"
+            print(last_sheet_error)
+            return None
+
+    try:
+        client = gspread.authorize(creds)
+        sheet = client.open_by_key(SPREADSHEET_ID)
+        last_sheet_error = ""
+        return sheet
+    except Exception as e:
+        last_sheet_error = f"Lỗi kết nối Google Sheets: {e}"
+        print(last_sheet_error)
+        return None
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -74,27 +140,7 @@ def login():
                     print("Lỗi đọc HR Info:", e)
                     return render_template('login.html', error='Lỗi đọc Google Sheets (kiểm tra lại quyền truy cập).')
             else:
-                b64 = os.environ.get('GOOGLE_CREDENTIALS_B64')
-                if b64:
-                    import base64
-                    import re
-                    try:
-                        # Làm sạch chuỗi TUYỆT ĐỐI (xóa mọi ký tự không phải base64 do Zeabur nhét vào)
-                        b_str = re.sub(r'[^A-Za-z0-9+/=]', '', b64)
-                        # Bỏ luôn dấu = ở cuối nếu có để tự tính toán lại padding
-                        b_str = b_str.rstrip('=')
-                        # Tính lại padding chuẩn 100%
-                        b_str += "=" * ((4 - len(b_str) % 4) % 4)
-                        
-                        b64_dec = base64.b64decode(b_str).decode('utf-8')
-                        d = json.loads(b64_dec)
-                        ServiceAccountCredentials.from_json_keyfile_dict(d, scope)
-                        err_msg = "Không có lỗi giải mã nhưng get_sheet vẫn trả về None vì lý do bí ẩn."
-                    except Exception as e:
-                        err_msg = f"Lỗi chi tiết (B64): {type(e).__name__} - {str(e)}"
-                else:
-                    err_msg = "Zeabur CHƯA HỀ NHẬN BIẾN GOOGLE_CREDENTIALS_B64! Bạn cần Restart Server trên Zeabur."
-                return render_template('login.html', error=err_msg)
+                return render_template('login.html', error=last_sheet_error or 'Lỗi kết nối Google Sheets. Vui lòng kiểm tra lại biến môi trường.')
             if is_valid:
                 session['platform_name'] = platform_name
                 session['stt'] = stt
