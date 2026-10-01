@@ -22,9 +22,11 @@ def get_sheet():
     creds = None
     if os.path.exists(creds_path):
         creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
-    elif os.environ.get('GOOGLE_CREDENTIALS'):
+    elif os.environ.get('GOOGLE_CREDENTIALS_B64'):
         try:
-            creds_dict = json.loads(os.environ.get('GOOGLE_CREDENTIALS'))
+            import base64
+            creds_json = base64.b64decode(os.environ.get('GOOGLE_CREDENTIALS_B64')).decode('utf-8')
+            creds_dict = json.loads(creds_json)
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         except Exception as e:
             print(f"Error parsing GOOGLE_CREDENTIALS: {e}")
