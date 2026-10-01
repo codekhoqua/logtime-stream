@@ -1,0 +1,4 @@
+{
+  "serverless": true,
+  "start_command": "gunicorn main:app"
+}
